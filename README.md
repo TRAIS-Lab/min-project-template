@@ -35,7 +35,7 @@ A minimal machine learning project template with essential tooling for dependenc
 
 1. **Clone and navigate to the project**:
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/TRAIS-Lab/min-project-template.git
    cd min-project-template
    ```
 
@@ -208,6 +208,186 @@ To bypass pre-commit hooks (not recommended):
 ```bash
 git commit --no-verify -m "message"
 ```
+
+## Best Practices for Reproducible ML Research
+
+Reproducibility is crucial for scientific research. Follow these practices to ensure your experiments can be replicated:
+
+### 1. Random Seed Management
+
+Always set random seeds for reproducibility:
+
+```python
+import random
+import numpy as np
+import torch  # if using PyTorch
+
+# Set seeds
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(SEED)
+```
+
+**Best Practice**: Store the seed value in your configuration files and log it with your experiment tracking system.
+
+### 2. Environment Reproducibility
+
+- **Lock dependencies**: Always commit `uv.lock` to version control
+  ```bash
+  # After modifying pyproject.toml, update and commit lock file
+  uv lock
+  git add uv.lock pyproject.toml
+  git commit -m "Update dependencies and lock file"
+  ```
+
+- **Use containers**: Build Apptainer containers for experiments to ensure consistent environments
+  ```bash
+  # Build container from definition file
+  apptainer build image.sif Apptainer.def
+  
+  # Run experiments in container
+  apptainer exec image.sif python -m src.train
+  
+  # Or use Makefile
+  make build-container
+  make run-container CMD="python -m src.train"
+  ```
+
+- **Document Python version**: Specify exact Python version in `Apptainer.def` and `pyproject.toml`
+  ```bash
+  # Check current Python version
+  python --version
+  
+  # In pyproject.toml, specify:
+  # requires-python = ">=3.11,<3.12"  # For exact version
+  # requires-python = ">=3.11"         # For minimum version
+  
+  # In Apptainer.def, use specific base image:
+  # From: python:3.11.5-slim  # Specific version
+  # From: python:3.11-slim     # Minor version
+  ```
+
+- **Freeze system packages**: Document any system-level dependencies or CUDA versions
+  ```bash
+  # Check CUDA version (if using GPUs)
+  nvidia-smi
+  
+  # Check system packages
+  pip list  # Python packages
+  apt list --installed  # Debian/Ubuntu (if in container)
+  
+  # Document in Apptainer.def or create requirements-system.txt
+  # Example in Apptainer.def:
+  # %post
+  #     apt-get update
+  #     apt-get install -y cuda-toolkit-11-8  # Document specific version
+  ```
+
+### 3. Experiment Tracking
+
+- **Log everything**: Hyperparameters, model architecture, data splits, preprocessing steps
+- **Use tags**: Tag experiments by purpose (e.g., `baseline`, `ablation`, `final`)
+- **Version datasets**: Document dataset versions, splits, and preprocessing
+- **Save configurations**: Define hyperparameters in your code or configuration files and commit them to git for each experiment
+
+```python
+# Example experiment logging
+config = {
+    "learning_rate": 0.001,
+    "batch_size": 32,
+    "seed": 42,
+    "model": "transformer",
+    "dataset_version": "v1.0",
+}
+# Log with your experiment tracking system
+```
+
+### 4. Data Management
+
+- **Document data sources**: Include data acquisition date, source, and preprocessing steps
+- **Version control splits**: Save train/val/test split indices or use deterministic splitting
+- **Data checksums**: Compute and store checksums for datasets to verify integrity
+- **Data documentation**: Create `data/README.md` describing datasets and their structure
+
+### 5. Configuration Management
+
+- **Centralize configs**: Store all hyperparameters in configuration files or constants in your code (consider creating a `config/` directory as your project grows)
+- **Version configs**: Commit configuration files or code with hyperparameters to track changes
+- **Use YAML/JSON**: Human-readable formats (YAML/JSON files) for easier review and modification, or define configs as Python dictionaries
+- **Environment variables**: Use `.env` files for sensitive information (never commit secrets to version control)
+
+### 6. Checkpoint Management
+
+- **Save checkpoints regularly**: Enable automatic checkpointing during training
+- **Metadata with checkpoints**: Save configuration, seed, and git commit hash with each checkpoint
+- **Naming conventions**: Use clear naming (e.g., `model_epoch_10_seed_42_commit_abc123.pt`)
+- **Document best models**: Track which checkpoints correspond to reported results
+
+### 7. Code Versioning
+
+- **Git tags for experiments**: Tag git commits for each experiment or paper submission
+  ```bash
+  git tag -a v1.0-baseline -m "Baseline experiment results"
+  git tag -a paper-v1.0 -m "Code version for paper submission"
+  ```
+- **Commit before experiments**: Always commit code before running experiments
+- **Document branches**: Use descriptive branch names for experimental variants
+- **Link results to commits**: Reference git commit hashes in papers and reports
+
+### 8. Results Documentation
+
+- **Report statistics**: Document mean and standard deviation across multiple runs
+- **Save predictions**: Store model predictions for later analysis
+- **Logging consistency**: Use consistent logging formats across experiments
+- **Results README**: Create `results/README.md` linking experiments to configurations
+
+### 9. Reproducibility Checklist
+
+Before publishing or sharing results, verify:
+
+- [ ] Random seeds are set and documented
+- [ ] All dependencies are pinned in `uv.lock`
+- [ ] Hyperparameters and configurations are committed (in code or config files)
+- [ ] Experiment runs are logged and tagged appropriately
+- [ ] Data preprocessing steps are documented
+- [ ] Code is committed with descriptive messages
+- [ ] Git tags mark important experiment versions
+- [ ] Checkpoints include metadata (seed, config, commit hash)
+- [ ] Container can reproduce the environment
+- [ ] README documents how to run experiments
+
+### 10. Example Reproducible Experiment Workflow
+
+```python
+# src/train.py
+import git
+from datetime import datetime
+
+# Get git commit hash for reproducibility
+repo = git.Repo(search_parent_directories=True)
+commit_hash = repo.head.object.hexsha[:7]
+
+# Initialize experiment tracking with comprehensive logging
+config = {
+    **hyperparameters,  # Your config dict
+    "git_commit": commit_hash,
+    "timestamp": datetime.now().isoformat(),
+}
+
+# Set seeds (from config)
+set_all_seeds(config["seed"])
+
+# Train model...
+```
+
+### Additional Resources
+
+- [ML Reproducibility Checklist](https://www.cs.mcgill.ca/~jpineau/ReproducibilityChecklist.pdf)
+- [Papers with Code Reproducibility](https://paperswithcode.com/)
+- [The Turing Way: Reproducible Research](https://the-turing-way.netlify.app/reproducible-research/reproducible-research.html)
 
 ## Contributing
 
