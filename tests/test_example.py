@@ -12,4 +12,3 @@ class TestExampleClass:
     def test_example_method(self):
         """Example test method."""
         assert 1 + 1 == 2
-
