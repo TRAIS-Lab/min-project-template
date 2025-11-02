@@ -1,0 +1,42 @@
+Bootstrap: docker
+From: python:3.11-slim
+
+%labels
+    Author Your Name
+    Version 0.1.0
+    Description ML Project Template Container
+
+%files
+    pyproject.toml /opt/project/pyproject.toml
+    uv.lock /opt/project/uv.lock
+
+%post
+    # Install system dependencies
+    apt-get update && apt-get install -y \
+        build-essential \
+        git \
+        curl \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install uv
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="/root/.local/bin:$PATH"
+
+    # Set working directory
+    cd /opt/project
+
+    # Install Python dependencies using uv
+    uv sync --frozen
+
+%environment
+    export PATH="/root/.local/bin:$PATH"
+    export PYTHONPATH="/opt/project/src:$PYTHONPATH"
+
+%runscript
+    exec "$@"
+
+%help
+    This is a containerized environment for the ML project template.
+    To build: apptainer build image.sif Apptainer.def
+    To run: apptainer exec image.sif python -m your_module
+
