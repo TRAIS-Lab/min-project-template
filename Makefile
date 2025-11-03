@@ -14,7 +14,7 @@ help:
 	@echo "  make pre-commit-run    - Run pre-commit on all files"
 	@echo "  make clean             - Clean cache and build artifacts"
 	@echo "  make build-container   - Build Apptainer container"
-	@echo "  make run-container     - Run command in container (usage: make run-container CMD='python -c \"print(1)\"')"
+	@echo "  make run-container     - Run command in container (usage: make run-container CMD='python -m src.train')"
 
 # Installation
 install:
@@ -55,14 +55,15 @@ pre-commit-run:
 
 # Containerization
 build-container:
-	apptainer build image.sif Apptainer.def
+	apptainer build --fakeroot image.sif Apptainer.def
 
 run-container:
 	@if [ -z "$(CMD)" ]; then \
-		echo "Usage: make run-container CMD='python -c \"print(1)\"'"; \
+		echo "Usage: make run-container CMD='python -m src.train'"; \
+		echo "       Or multiple commands: make run-container CMD='uv run ruff format . && uv run pytest'"; \
 		exit 1; \
 	fi
-	apptainer exec image.sif $(CMD)
+	apptainer exec --nv --cleanenv --bind "$(CURDIR)":/work --pwd /work image.sif bash -lc "set -euo pipefail; $(CMD)"
 
 # Cleanup
 clean:

@@ -155,7 +155,8 @@ uv add --dev pytest-cov  # Adds to [project.optional-dependencies.dev]
 ### Building Apptainer Image
 
 ```bash
-apptainer build image.sif Apptainer.def
+# --fakeroot: Build without root privileges (requires fakeroot to be configured)
+apptainer build --fakeroot image.sif Apptainer.def
 ```
 
 Or use the Makefile:
@@ -166,14 +167,22 @@ make build-container
 ### Running with Apptainer
 
 ```bash
-# Execute a Python command
-apptainer exec image.sif python -c "print('Hello, World!')"
+# Run a command with advanced options
+# --nv: Enable NVIDIA GPU support (mounts GPU drivers and libraries)
+# --cleanenv: Clean environment variables, only keep minimal set
+# --bind "$PWD":/work: Bind mount current directory to /work in container
+# --pwd /work: Set working directory to /work inside container
+# bash -lc: Run bash as login shell to source profile scripts
+# set -euo pipefail: Bash safety options (-e: exit on error, -u: error on unset vars, -o pipefail: fail pipeline on any error)
+# Multiple bash commands can be separated by semicolons or newlines
+apptainer exec --nv --cleanenv --bind "$PWD":/work --pwd /work image.sif bash -lc '
+    set -euo pipefail
+    uv run ruff format .
+    uv run pytest
+'
 
-# Interactive shell
+# Interactive shell (opens an interactive shell inside the container)
 apptainer shell image.sif
-
-# Run a command
-apptainer exec image.sif uv run pytest
 ```
 
 Or use the Makefile:
@@ -246,10 +255,13 @@ if torch.cuda.is_available():
 - **Use containers**: Build Apptainer containers for experiments to ensure consistent environments
   ```bash
   # Build container from definition file
-  apptainer build image.sif Apptainer.def
+  apptainer build --fakeroot image.sif Apptainer.def
   
   # Run experiments in container
-  apptainer exec image.sif python -m src.train
+  apptainer exec --nv --cleanenv --bind "$PWD":/work --pwd /work image.sif bash -lc '
+      set -euo pipefail
+      python -m src.train
+  '
   
   # Or use Makefile
   make build-container
